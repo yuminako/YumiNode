@@ -41,6 +41,11 @@ class Node {
         });
     }
 
+    receiveDataFromGateway(data) {
+        console.log(`Received data from gateway: ${data}`);
+        // Traiter les données reçues de la gateway
+    }
+
     startServer() {
         this.server.listen(this.port, this.ip, () => {
             console.log(`Node server is running on ${this.ip}:${this.port}`);
