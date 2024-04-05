@@ -1,12 +1,12 @@
 {
   "dependencies": {
+    "express": "^4.19.2",
     "net": "^1.0.2"
   },
   "name": "com.yuminako.yuminode",
   "description": "#\u0000 \u0000Y\u0000u\u0000m\u0000i\u0000N\u0000o\u0000d\u0000e\u0000\r\u0000 \u0000",
   "version": "2.1.0",
   "main": "main.js",
-  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node main.js"

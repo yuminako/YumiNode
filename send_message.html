@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Message</title>
+</head>
+<body>
+    <h1>Envoyer un message à un autre node</h1>
+    <form action="/send-message" method="post">
+        <label for="fromNode">Node d'origine</label>
+        <select id="fromNode" name="fromNode">
+        </select>
+        <br><br>
+        <label for="toNode">Node destinataire</label>
+        <select id="toNode" name="toNode">
+        </select>
+        <br><br>
+        <label for="content">Message Content:</label><br>
+        <textarea id="content" name="content" rows="4" cols="50"></textarea><br><br>
+        <input type="submit" value="Send Message">
+    </form>
+    <script>
+        // Récupère la liste des nodes en ligne et les affiche dans les select
+        fetch('/nodes')
+            .then(response => response.json())
+            .then(data => {
+                const fromNodeSelect = document.getElementById('fromNode');
+                const toNodeSelect = document.getElementById('toNode');
+                data.forEach(node => {
+                    const fromOption = document.createElement('option');
+                    fromOption.value = node;
+                    fromOption.text = node;
+                    fromNodeSelect.appendChild(fromOption);
+
+                    const toOption = document.createElement('option');
+                    toOption.value = node;
+                    toOption.text = node;
+                    toNodeSelect.appendChild(toOption);
+                });
+            });
+    </script>
+</body>
+</html>
