@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title><%- nodeName %> - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold"><%- nodeName %></h1>
+            <p class="text-gray-600">Dashboard de contrôle</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold mb-4">Pairs connectés</h2>
+                <div class="space-y-2">
+                    <% peers.forEach(peer => { %>
+                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                            <span class="font-medium"><%= peer %></span>
+                            <button 
+                                onclick="openMessageModal('<%= peer %>')"
+                                class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                            >
+                                Message
+                            </button>
+                        </div>
+                    <% }); %>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold mb-4">Messages récents</h2>
+                <div class="space-y-4">
+                    <% messages.slice().reverse().slice(0, 10).forEach(msg => { %>
+                        <div class="border-l-4 <%= msg.from === nodeName ? 'border-blue-500' : 'border-green-500' %> pl-4">
+                            <div class="flex justify-between text-sm text-gray-600">
+                                <span><%= msg.from %> → <%= msg.to %></span>
+                                <span><%= new Date(msg.timestamp).toLocaleString() %></span>
+                            </div>
+                            <p class="mt-1"><%= msg.decryptedMessage || '(Message chiffré)' %></p>
+                        </div>
+                    <% }); %>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="messageModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-96">
+            <h3 class="text-xl font-bold mb-4">Envoyer un message</h3>
+            <input type="hidden" id="messageTarget">
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">
+                    Message
+                </label>
+                <textarea 
+                    id="messageContent"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    rows="4"
+                ></textarea>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button 
+                    onclick="closeMessageModal()"
+                    class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+                >
+                    Annuler
+                </button>
+                <button 
+                    onclick="sendMessage()"
+                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                >
+                    Envoyer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openMessageModal(target) {
+            document.getElementById('messageModal').classList.remove('hidden');
+            document.getElementById('messageTarget').value = target;
+        }
+
+        function closeMessageModal() {
+            document.getElementById('messageModal').classList.add('hidden');
+            document.getElementById('messageContent').value = '';
+        }
+
+        async function sendMessage() {
+            const target = document.getElementById('messageTarget').value;
+            const content = document.getElementById('messageContent').value;
+
+            try {
+                const response = await fetch('/send', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        target: target,
+                        message: content
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    closeMessageModal();
+                    setTimeout(() => window.location.reload(), 500);
+                } else {
+                    alert('Erreur: ' + (result.error || 'Impossible d\'envoyer le message'));
+                }
+            } catch (error) {
+                alert('Erreur: ' + error.message);
+            }
+        }
+        setInterval(() => window.location.reload(), 10000);
+    </script>
+</body>
+</html>
