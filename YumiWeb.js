@@ -126,6 +126,11 @@ class YumiWeb {
                 pendingMessages: this.yumiNode.blockchain.pendingMessages
             });
         });
+        this.app.get('/trust', authMiddleware, (req, res) => {
+            res.json({
+                trust: this.yumiNode.trust
+            });
+        });
     }
 
     loadMessages() {
@@ -149,3 +154,5 @@ class YumiWeb {
 }
 
 module.exports = YumiWeb;
+
+

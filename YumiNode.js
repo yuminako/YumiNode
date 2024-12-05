@@ -5,27 +5,85 @@ const fs = require("fs");
 const path = require("path");
 
 class Blockchain {
-    constructor(storagePath) {
+    constructor(storagePath, nodeKeyPair) {
         this.storagePath = storagePath;
+        this.nodeKeyPair = nodeKeyPair;
         this.chain = this.loadChain();
         this.pendingMessages = [];
+
+        console.log(`[Blockchain] Initialisation avec ${this.chain.length} blocs`);
+    }
+
+    createGenesisBlock() {
+        const networkRules = {
+            plaintext: {
+                version: "1.0",
+                rules: [
+                    "1. Tous les messages doivent être signés",
+                    "2. La validation des signatures est obligatoire",
+                    "3. Les scores de confiance commencent à 50",
+                    "4. Un score de confiance inférieur à 30 indique un nœud malveillant",
+                    "5. Les blocs sont créés toutes les 10 secondes s'il y a des messages en attente",
+                    "6. Chaque nœud doit maintenir une copie à jour de la blockchain"
+                ]
+            }
+        };
+
+        // Chiffrement des règles pour stocker une version chiffrée
+        const encryptedRules = crypto.publicEncrypt(
+            {
+                key: this.nodeKeyPair.publicKey,
+                padding: crypto.constants.RSA_PKCS1_OAEP_PADDING
+            },
+            Buffer.from(JSON.stringify(networkRules))
+        ).toString('base64');
+
+        // Signature des règles
+        const signature = crypto.sign(
+            "sha256",
+            Buffer.from(encryptedRules, 'base64'),
+            this.nodeKeyPair.privateKey
+        ).toString('base64');
+
+        const genesisBlock = {
+            index: 0,
+            timestamp: Date.now(),
+            messages: [{
+                timestamp: Date.now(),
+                from: "GENESIS",
+                to: "0",
+                encryptedMessage: encryptedRules,
+                signature: signature,
+                plaintext: JSON.stringify(networkRules.plaintext)
+            }],
+            previousHash: "0"
+        };
+
+        genesisBlock.hash = this.calculateHash(genesisBlock);
+        console.log('[Blockchain] Création d\'une nouvelle blockchain');
+        this.saveChain(genesisBlock);
+        return genesisBlock;
     }
 
     loadChain() {
         try {
             const chainPath = path.join(this.storagePath, 'blockchain.json');
             if (fs.existsSync(chainPath)) {
-                return JSON.parse(fs.readFileSync(chainPath, 'utf8'));
+                const chain = JSON.parse(fs.readFileSync(chainPath, 'utf8'));
+                console.log('[Blockchain] Chargement de la blockchain existante');
+                return chain;
             }
+            console.log('[Blockchain] Aucune blockchain existante trouvée');
         } catch (error) {
-            console.log('Création d\'une nouvelle blockchain');
+            console.log('[Blockchain] Erreur lors du chargement:', error.message);
         }
-        return [];
+       
     }
 
-    saveChain() {
+    saveChain(chain = this.chain) {
         const chainPath = path.join(this.storagePath, 'blockchain.json');
-        fs.writeFileSync(chainPath, JSON.stringify(this.chain, null, 2));
+        fs.writeFileSync(chainPath, JSON.stringify(chain, null, 2));
+        console.log(`[Blockchain] Sauvegarde de ${chain.length} blocs`);
     }
 
     addMessage(from, to, encryptedMessage, signature) {
@@ -86,32 +144,58 @@ class YumiNode extends events.EventEmitter {
         this.name = name;
         this.port = port;
         this.server = null;
-        this.clients = new Map();
-        this.peerPublicKeys = new Map();
         this.storagePath = path.join(process.cwd(), name);
         this.connectToPort = connectToPort;
 
         this.initializeStorage();
         this.loadOrGenerateKeys();
-        
-        this.blockchain = new Blockchain(this.storagePath);
+       
+        console.log(`[${this.name}] Initialisation de la blockchain`);
+        this.blockchain = new Blockchain(this.storagePath, this.keyPair);
+
+        if (this.blockchain.chain.length === 0) {
+            console.log(`[${this.name}] Erreur: La blockchain est vide`);
+        } else {
+            console.log(`[${this.name}] Blockchain initialisée avec ${this.blockchain.chain.length} blocs`);
+        }
         
         this.startServer();
-        
+
+
         this.addressBook = new Map();
+        this.clients = new Map();
+        this.peerPublicKeys = new Map();
+        this.trustScores = new Map();
         this.loadAddressBook();
-        
+
         if (this.connectToPort) {
             setTimeout(() => this.connectToPeer(), 500);
+            setInterval(() => this.broadcastAddressBook(), 10000);
         }
 
         setInterval(() => this.checkBlockchain(), 10000);
+        setInterval(() => this.checkMissingConnections(), 30000);
     }
+    
 
     initializeStorage() {
         if (!fs.existsSync(this.storagePath)) {
             fs.mkdirSync(this.storagePath);
             console.log(`[${this.name}] Création du dossier de stockage`);
+        }
+    }
+
+    checkMissingConnections() {
+        console.log(`[${this.name}] Vérification des connexions manquantes...`);
+        
+        for (const [nodeName, nodeInfo] of this.addressBook) {
+            // Ignorer notre propre node
+            if (nodeName === this.name) continue;
+            
+            // Vérifier si nous ne sommes pas déjà connectés
+            if (!this.clients.has(nodeName)) {
+                this.connectToNewNode(nodeName, nodeInfo.port);
+            }
         }
     }
 
@@ -145,6 +229,28 @@ class YumiNode extends events.EventEmitter {
             fs.writeFileSync(publicKeyPath, publicKey);
             fs.writeFileSync(privateKeyPath, privateKey);
         }
+    }
+
+
+
+    adjustTrustScore(nodeName, delta) {
+        if (this.addressBook.has(nodeName)) {
+            const currentScore = this.addressBook.get(nodeName).trustScore;
+            const newScore = Math.max(Math.min(currentScore + delta, 100), 0);
+            
+            // Mise à jour du score seulement s'il a changé
+            if (currentScore !== newScore) {
+                console.log(`[${this.name}] Ajustement du score de confiance pour ${nodeName}: ${currentScore} -> ${newScore}`);
+                this.addressBook.get(nodeName).trustScore = newScore;
+                this.saveAddressBook();
+                this.broadcastAddressBook();
+            }
+        }
+    }
+
+    isMaliciousNode(nodeName) {
+        const trustScore = this.addressBook.get(nodeName)?.trustScore || 100;
+        return trustScore < 30; // Seuil configurable
     }
 
     saveMessage(from, to, encryptedMessage, decryptedMessage = null) {
@@ -220,7 +326,8 @@ class YumiNode extends events.EventEmitter {
 
         this.addressBook.set(data.name, {
             port: data.port,
-            publicKey: data.key
+            publicKey: data.key,
+            trustScore: 50 // Initial trust score 
         });
         this.saveAddressBook();
         this.broadcastAddressBook();
@@ -232,7 +339,8 @@ class YumiNode extends events.EventEmitter {
         }));
         
         if (this.connectToPort) {
-            this.sendEncryptedMessage(ws, data.name, `Bonjour de ${this.name}`);
+            // this.sendEncryptedMessage(ws, data.name, `Bonjour ${data.name} ! Je suis ${this.name}`);
+            console.log(`[${this.name}] Envoi d'un message de bienvenue à ${data.name}`);
         }
     }
 
@@ -258,7 +366,11 @@ class YumiNode extends events.EventEmitter {
 
             if (!isValidSignature) {
                 console.log(`[${this.name}] Message rejeté: signature invalide de ${data.from}`);
+                this.adjustTrustScore(data.from, -10); // Réduire la confiance si la signature est invalide
                 return;
+            }else{
+                console.log(`[${this.name}] Message accepté: signature valide de ${data.from}`);
+                this.adjustTrustScore(data.from, 1); // Augmenter la confiance si la signature est valide
             }
 
             const decryptedMessage = crypto.privateDecrypt(
@@ -286,35 +398,87 @@ class YumiNode extends events.EventEmitter {
 
     handleAddressBook(data) {
         const receivedBook = new Map(Object.entries(data));
-        let newConnections = false;
+        let hasChanges = false;
     
         for (const [name, info] of receivedBook) {
-            if (!this.addressBook.has(name) && name !== this.name) {
-                console.log(`[${this.name}] Nouveau node découvert: ${name}`);
-                this.addressBook.set(name, info);
-                newConnections = true;
-
-
-    
-                if (!this.clients.has(name)) {
-                    const ws = new WebSocket(`ws://localhost:${info.port}`);
-                    ws.on("open", () => {
-                        console.log(`[${this.name}] Connexion au nouveau node ${name}`);
-                        this.sendPublicKey(ws);
-                        // Envoyer immédiatement le carnet d'adresses
-                        ws.send(JSON.stringify({
-                            type: "addressBook",
-                            data: Object.fromEntries(this.addressBook)
-                        }));
-                        this.setupClientHandlers(ws);
-                    });
+            if (name === this.name) continue;
+            
+            if (!this.addressBook.has(name)) {
+                // Nouveau node découvert
+                this.addressBook.set(name, {
+                    ...info,
+                    trustScore: 50  // Score initial
+                });
+                hasChanges = true;
+            } else {
+                // Mise à jour des informations existantes
+                const currentNode = this.addressBook.get(name);
+                if (currentNode.port !== info.port || currentNode.publicKey !== info.publicKey) {
+                    currentNode.port = info.port;
+                    currentNode.publicKey = info.publicKey;
+                    hasChanges = true;
                 }
             }
         }
-    
-        if (newConnections) {
+        
+        if (hasChanges) {
             this.saveAddressBook();
             this.broadcastAddressBook();
+            // Vérifier immédiatement les connexions manquantes après une mise à jour
+            this.checkMissingConnections();
+        }
+    }
+
+    connectToNewNode(nodeName, nodePort) {
+        // Éviter les connexions en boucle ou inutiles
+        if (nodePort === this.port || this.clients.has(nodeName)) {
+            return;
+        }
+
+        console.log(`[${this.name}] Tentative de connexion au node ${nodeName} sur le port ${nodePort}`);
+        
+        try {
+            const client = new WebSocket(`ws://localhost:${nodePort}`);
+            
+            // Timeout pour la connexion
+            const connectionTimeout = setTimeout(() => {
+                if (client.readyState !== WebSocket.OPEN) {
+                    console.log(`[${this.name}] Timeout de connexion pour ${nodeName}`);
+                    this.adjustTrustScore(nodeName, -10);
+                    client.terminate();
+                }
+            }, 5000); // 5 secondes de timeout
+
+            client.on("open", () => {
+                clearTimeout(connectionTimeout);
+                console.log(`[${this.name}] Connexion établie avec ${nodeName}`);
+                this.sendPublicKey(client);
+                this.adjustTrustScore(nodeName, 1);
+                
+                // Envoyer notre carnet d'adresses
+                client.send(JSON.stringify({
+                    type: "addressBook",
+                    data: Object.fromEntries(this.addressBook)
+                }));
+            });
+
+            client.on("error", (error) => {
+                clearTimeout(connectionTimeout);
+                console.log(`[${this.name}] Erreur de connexion au node ${nodeName}:`, error.message);
+                this.adjustTrustScore(nodeName, -10);
+            });
+
+            client.on("close", () => {
+                if (this.clients.has(nodeName)) {
+                    this.clients.delete(nodeName);
+                    console.log(`[${this.name}] Connexion fermée avec ${nodeName}`);
+                }
+            });
+
+            this.setupClientHandlers(client);
+        } catch (error) {
+            console.log(`[${this.name}] Erreur lors de la tentative de connexion à ${nodeName}:`, error.message);
+            this.adjustTrustScore(nodeName, -10);
         }
     }
 
