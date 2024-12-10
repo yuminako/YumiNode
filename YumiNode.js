@@ -157,7 +157,6 @@ class YumiNode extends events.EventEmitter {
 
         this.initializeStorage();
         this.loadOrGenerateKeys();
-       
         console.log(`[${this.name}] Initialisation de la blockchain`);
         this.blockchain = new Blockchain(this.storagePath, this.keyPair);
 
@@ -184,6 +183,7 @@ class YumiNode extends events.EventEmitter {
 
         setInterval(() => this.checkBlockchain(), 10000);
         setInterval(() => this.checkMissingConnections(), 30000);
+        setInterval(() => this.updateTrustScores(), 300000); // 300 000 ms = 5 minutes
     }
     
 
@@ -255,6 +255,35 @@ class YumiNode extends events.EventEmitter {
                 this.broadcastAddressBook();
             }
         }
+    }
+
+    updateTrustScores() {
+        console.log(`[${this.name}] Mise à jour des scores de confiance...`);
+    
+        this.addressBook.forEach((info, nodeName) => {
+            if (nodeName === this.name) return; // Ignorer le nœud local
+    
+            // Vérifier si le nœud est connecté
+            if (this.clients.has(nodeName)) {
+                // Le nœud est en ligne, augmenter son score
+                const currentScore = info.trustScore;
+                const newScore = Math.min(currentScore * 1.01, 100); // Limiter à 100%
+                this.addressBook.set(nodeName, { ...info, trustScore: newScore });
+                console.log(`[${this.name}] ${nodeName} est en ligne. Score augmenté: ${currentScore} -> ${newScore.toFixed(2)}`);
+            } else {
+                // Le nœud est hors ligne, diminuer son score
+                const currentScore = info.trustScore;
+                const newScore = Math.max(currentScore * 0.985, 0); // Minimum 0%
+                this.addressBook.set(nodeName, { ...info, trustScore: newScore });
+                console.log(`[${this.name}] ${nodeName} est hors ligne. Score diminué: ${currentScore} -> ${newScore.toFixed(2)}`);
+            }
+
+            console.log(`[${this.name}] Score de confiance avant mise à jour: ${JSON.stringify(Object.fromEntries(this.addressBook), null, 2)}`);
+        });
+    
+        // Sauvegarder les changements
+        this.saveAddressBook();
+        this.broadcastAddressBook();
     }
 
     isMaliciousNode(nodeName) {

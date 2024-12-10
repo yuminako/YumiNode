@@ -131,6 +131,16 @@ class YumiWeb {
                 trust: this.yumiNode.trust
             });
         });
+        this.app.get('/explore', authMiddleware, (req, res) => {
+            const { hash } = req.query;
+            let chain = this.yumiNode.blockchain.chain;
+        
+            if (hash) {
+                chain = chain.filter(block => block.hash.includes(hash));
+            }
+        
+            res.render('blockchain', { chain });
+        });
     }
 
     loadMessages() {
