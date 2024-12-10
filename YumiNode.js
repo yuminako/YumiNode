@@ -163,7 +163,7 @@ class YumiNode extends events.EventEmitter {
 
         if (!this.blockchain.chain || this.blockchain.chain.length === 0) {
             console.error(`[${this.name}] La blockchain est vide ou non initialisée.`);
-            process.exit(1); // Arrêter le processus en cas d'erreur critique
+            this.initializeBlockchain();
         } else {
             console.log(`[${this.name}] Blockchain initialisée avec ${this.blockchain.chain.length} blocs`);
         }
@@ -501,6 +501,53 @@ class YumiNode extends events.EventEmitter {
         }
     }
 
+    initializeBlockchain() {
+        if (this.blockchain.chain.length === 0) {
+            console.log(`[${this.name}] Aucun bloc local trouvé. Recherche de blockchain auprès des pairs...`);
+    
+            let blockchainFound = false;
+    
+            this.clients.forEach((ws) => this.requestBlockchain(ws));
+    
+            setTimeout(() => {
+                if (!blockchainFound) {
+                    console.log(`[${this.name}] Aucune blockchain trouvée. Création du Genesis Block.`);
+                    const genesisBlock = this.blockchain.createGenesisBlock();
+                    this.blockchain.chain.push(genesisBlock);
+                    this.blockchain.saveChain();
+                    this.broadcastBlockchain();
+                }
+            }, 5000);
+        }
+    }
+    
+    handleBlockchainUpdate(data) {
+        const receivedChain = data.chain;
+        if (receivedChain.length > this.blockchain.chain.length) {
+            console.log(`[${this.name}] Blockchain reçue de longueur ${receivedChain.length}`);
+            if (this.blockchain.isChainValid(receivedChain)) {
+                this.blockchain.chain = receivedChain;
+                this.blockchain.saveChain();
+                console.log(`[${this.name}] Blockchain mise à jour`);
+                blockchainFound = true; // Indiquer qu'une blockchain a été trouvée
+            } else {
+                console.log(`[${this.name}] Blockchain reçue invalide`);
+            }
+        }
+    }
+
+    requestBlockchain(ws) {
+        ws.send(JSON.stringify({ type: "requestBlockchain" }));
+    }
+    
+    handleBlockchainRequest(ws) {
+        console.log(`[${this.name}] Envoi de la blockchain locale à un pair.`);
+        ws.send(JSON.stringify({
+            type: "blockchain",
+            data: { chain: this.blockchain.chain }
+        }));
+    }
+
     handleBlockchainUpdate(data) {
         const receivedChain = data.chain;
         if (receivedChain.length > this.blockchain.chain.length) {
@@ -625,6 +672,12 @@ class YumiNode extends events.EventEmitter {
                     break;
                 case "addressBook":
                     this.handleAddressBook(data);
+                    break;
+                case "requestBlockchain":
+                    this.handleBlockchainRequest(client);
+                    break;
+                case "blockchain":
+                    this.handleBlockchainUpdate(data);
                     break;
             }
         });
