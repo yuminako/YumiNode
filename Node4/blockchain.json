@@ -1,0 +1,18 @@
+[
+  {
+    "index": 0,
+    "timestamp": 1733845430100,
+    "messages": [
+      {
+        "timestamp": 1733845430100,
+        "from": "GENESIS",
+        "to": "0",
+        "encryptedMessage": "Avoy+qcn0wbhrIEtGZejHES7LhtQt7bvoPNnN0hHi+CES6PCEx4FYY4AJRLKFk/9mXBRQzFKGa/xSZROTD7YqeLQvqbaC1XlpyS2WalYEyCcRBL4dnEuqyJ4vN57eGiSUGGhAiocylFMjzPDsn0M99JFAIHcHbSmqbqOW/8P4AlLPtTsSkdtfobqeGr7MXpyelrBhF1xHoqot28TFNhlGjQkYyd6i9Q5F1585VfOtl7gEYKLpJSdG7NqIlwgyNtp64JXeszfTG7pD6p2ocpeDdc/l3oZ8sWaEr95hPTLZK0y6HWMGewb8JP1Qwm+whd+ugZupcMxrLly+pjMAtKvReXpliDA6CDHFfE8fSo8iz8BRukcf3xBm3XxkXl9Ms0slBrEybF3ZpKDuxr3oSvIqbclPHV8ENInhrVQMazPLIsk50bxqAG5RSu9ri33hCF9vDjPltQd38Q4iSFf/XMKQXSWhg8dwVYT1QTuIF0Do06cyHmP9Un7aEM6kdJUbLVpa60pafuXSXVsNiOYTJyfJojhy77+yO5GCd182VsjxPsAFX+n71FO4B9GQFC4zVXqetxiYahA6qMtwM5sxdlN0Eaoob9JdGlhAhPRs7WhQ+dg8ZAWQ77i2poTi6l0/51w+Xqe2kfxBFssIoBCRu2xSFlBitCSTn8mWnRL+3F8IA4=",
+        "signature": "qPMA3QE3ppAHbQJs/wVPv2q4y8aj5Z4m3AxLh4aL5dsv1yQKgdIIxAialhXxwsjVdsFn+NjSSySwLmMEYotolp/sSd2u458ZXNlZC+En0/jer6MN+neAXDrsk1wBwaaCt+MKWdG25QaW//UmnIvUP0CHC7gvavu24segnAGuATE0Fxf4dsyR/iOzDoSNEpHLZV7V8fX38uzgUgmaMIzXpUD62y7aEPPZ0yfGmc9ReKPymc6qNfAYbY5Wm4MG3RFV7eLb/TIPIWYAfRjBtXy4s8mj5W+/Y2Huffz2NvIb1UeWUcLTJRC52uU4/dFXYO+XgTHD14Co5v0GWMeBdyE8lpNV0fro3UUfMJuLM7wsWfjK8xaIEEgNR9Fijbxo5V/4Ftxd5m9X3rfEfhdFKcmBxrw7dkausrSCWU3JNG/OvXc5daWmMVL2GkIMVI7Pu5SPNXxvlD6Oy4TFESwH1JkFZ+oHn7ROjDjg69letfoKYXtzxpvepr3fxpha5no+WleIF6jJrEFhi/YwuMK/qQxvdPWoeqmXmYtk0f0yYInmwLbdOWuFXtkDsTn0Z9K76UthWKu+XlKvt3yGGbjMcIoV1+u6PEtSprQqAHfQg5zOgF4CYyPUUvKKANYkGWmeMFH799ynPhbqv8aELfEZD/s22tZ5A99NWCOJ8M4QPOAPHE8=",
+        "plaintext": "{\"version\":\"1.0\",\"rules\":[\"1. Tous les messages doivent être signés\",\"2. La validation des signatures est obligatoire\",\"3. Les scores de confiance commencent à 50\",\"4. Un score de confiance inférieur à 30 indique un nœud malveillant\",\"5. Les blocs sont créés toutes les 10 secondes s'il y a des messages en attente\",\"6. Chaque nœud doit maintenir une copie à jour de la blockchain\"]}"
+      }
+    ],
+    "previousHash": "0",
+    "hash": "5b54976ab3380f2e14bee637a5fa98b32b6a0a87ee5bcc9818349184de77d132"
+  }
+]

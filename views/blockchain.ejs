@@ -107,6 +107,10 @@
                             <p><strong>De:</strong> <%= message.from %></p>
                             <p><strong>À:</strong> <%= message.to %></p>
                             <p><strong>Contenu (Chiffré):</strong> <%= message.encryptedMessage %></p>
+
+                            <% if (message.plaintext) { %>
+                            <p><strong>Contenu (Déchiffré):</strong> <%= message.plaintext %></p>
+                            <% } %>
                             <p><strong>Signature:</strong> <%= message.signature %></p>
                         </li>
                     <% }); %>

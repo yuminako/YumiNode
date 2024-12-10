@@ -19,6 +19,28 @@ class Blockchain {
         console.log(`[Blockchain] Initialisation avec ${this.chain.length} blocs`);
     }
 
+    initializeBalances() {
+        const genesisBalances = {
+            "GENESIS": {
+                balance: 1000000,
+                trustScore: 100,
+                activity: 0
+            }
+        };
+        return this.chain.length === 0 ? genesisBalances : this.getBalancesFromChain();
+    }
+
+    getBalancesFromChain() {
+        const balances = {};
+        this.chain.forEach(block => {
+            block.transactions.forEach(tx => {
+                balances[tx.from].balance = (balances[tx.from]?.balance || 0) - tx.amount;
+                balances[tx.to].balance = (balances[tx.to]?.balance || 0) + tx.amount;
+            });
+        });
+        return balances;
+    }
+
     createGenesisBlock() {
         const networkRules = {
             plaintext: {
@@ -68,6 +90,29 @@ class Blockchain {
         console.log('[Blockchain] Création d\'une nouvelle blockchain');
         this.saveChain(genesisBlock);
         return genesisBlock;
+    }
+
+    addTransaction(from, to, amount, signature) {
+        if (!this.balances[from] || this.balances[from].balance < amount) {
+            throw new Error("Fonds insuffisants");
+        }
+        const transaction = { from, to, amount, timestamp: Date.now(), signature };
+        this.pendingMessages.push(transaction);
+        console.log(`[Blockchain] Nouvelle transaction: ${from} -> ${to}: ${amount} YUMI`);
+    }
+
+    distributeRewards() {
+        console.log("[Blockchain] Distribution des récompenses aux nœuds actifs...");
+        const baseReward = 10;
+
+        Object.keys(this.balances).forEach(nodeName => {
+            const { trustScore, activity } = this.balances[nodeName];
+            const reward = (trustScore / 100) * baseReward + (activity / 100) * baseReward;
+            this.balances[nodeName].balance = (this.balances[nodeName].balance || 0) + reward;
+            console.log(`[Blockchain] ${reward.toFixed(2)} YUMI attribués à ${nodeName}`);
+        });
+
+        this.saveChain();
     }
 
     loadChain() {
@@ -184,6 +229,12 @@ class YumiNode extends events.EventEmitter {
         setInterval(() => this.checkBlockchain(), 10000);
         setInterval(() => this.checkMissingConnections(), 30000);
         setInterval(() => this.updateTrustScores(), 300000); // 300 000 ms = 5 minutes
+
+        // Synchronisation des récompenses toutes les 10 minutes
+        setInterval(() => {
+            this.blockchain.distributeRewards();
+            this.broadcastBalances();
+        }, 10 * 60 * 1000);
     }
     
 
@@ -683,6 +734,13 @@ class YumiNode extends events.EventEmitter {
         for (let [name, ws] of this.clients) {
             this.sendEncryptedMessage(ws, name, message);
         }
+    }
+
+    broadcastBalances() {
+        const balances = this.blockchain.balances;
+        this.clients.forEach(ws => {
+            ws.send(JSON.stringify({ type: "balances", data: balances }));
+        });
     }
 
     setupClientHandlers(client) {
