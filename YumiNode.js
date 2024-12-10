@@ -10,7 +10,12 @@ class Blockchain {
         this.nodeKeyPair = nodeKeyPair;
         this.chain = this.loadChain();
         this.pendingMessages = [];
-
+    
+        if (this.chain.length === 0) {
+            console.log('[Blockchain] Création du Genesis Block');
+            this.chain.push(this.createGenesisBlock());
+            this.saveChain();
+        }
         console.log(`[Blockchain] Initialisation avec ${this.chain.length} blocs`);
     }
 
@@ -77,7 +82,7 @@ class Blockchain {
         } catch (error) {
             console.log('[Blockchain] Erreur lors du chargement:', error.message);
         }
-       
+        return []; // Retourner un tableau vide si rien n'est chargé
     }
 
     saveChain(chain = this.chain) {
@@ -122,14 +127,17 @@ class Blockchain {
     }
 
     isChainValid() {
+        if (this.chain.length === 0) {
+            return false;
+        }
         for (let i = 1; i < this.chain.length; i++) {
             const currentBlock = this.chain[i];
             const previousBlock = this.chain[i - 1];
-
+    
             if (currentBlock.previousHash !== previousBlock.hash) {
                 return false;
             }
-
+    
             if (currentBlock.hash !== this.calculateHash(currentBlock)) {
                 return false;
             }
@@ -153,8 +161,9 @@ class YumiNode extends events.EventEmitter {
         console.log(`[${this.name}] Initialisation de la blockchain`);
         this.blockchain = new Blockchain(this.storagePath, this.keyPair);
 
-        if (this.blockchain.chain.length === 0) {
-            console.log(`[${this.name}] Erreur: La blockchain est vide`);
+        if (!this.blockchain.chain || this.blockchain.chain.length === 0) {
+            console.error(`[${this.name}] La blockchain est vide ou non initialisée.`);
+            process.exit(1); // Arrêter le processus en cas d'erreur critique
         } else {
             console.log(`[${this.name}] Blockchain initialisée avec ${this.blockchain.chain.length} blocs`);
         }
